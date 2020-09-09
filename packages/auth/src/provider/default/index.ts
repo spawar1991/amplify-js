@@ -1,9 +1,17 @@
-import { AuthProvider, SignUp, ResendSignUpCode, ConfirmSignUp } from '..';
+import {
+	Provider,
+	SignUp,
+	ResendSignUpCode,
+	ConfirmSignUp,
+	SignInWithSocialUi,
+	Config,
+} from '..';
 import {
 	createSignUp,
 	createResendSignUpCode,
 	createConfirmSignUp,
-	createLogInWithOAuthCode,
+	createSignInWithOAuthCode,
+	createSignInWithSocialUi,
 } from './commands';
 import {
 	CognitoIdentityProviderClient,
@@ -16,67 +24,53 @@ import {
 	Credentials as IdentityPoolCredentials,
 } from '@aws-sdk/client-cognito-identity';
 import { fromCognitoIdentityPool } from '@aws-sdk/credential-provider-cognito-identity';
-import { AuthOptions as Config } from '../../types';
 import { normalizeConfig } from './normalize-config';
-import { Context } from './context';
+import { Context, Clients } from './context';
 
-function IdentityPoolClient(config: Config): CognitoIdentityClient {
-	const identityClient = new CognitoIdentityClient({
-		region: config.region,
-	});
+export class ProviderDefault implements Provider {
+	authFlowType: AuthFlowType;
 
-	if (!config.mandatorySignIn) {
-		const unauthCredentialsProvider = fromCognitoIdentityPool({
-			identityPoolId: config.identityPoolId,
-			client: identityClient,
-		});
-
-		identityClient.config.credentials = unauthCredentialsProvider;
-	}
-
-	return identityClient;
-}
-
-function UserPoolClient(config: Config): CognitoIdentityProviderClient {
-	return new CognitoIdentityProviderClient({
-		region: config.region,
-	});
-}
-
-// function Credentials(client: CognitoIdentityClient, identityId: string) {
-// 	return fromCognitoIdentity({
-// 		client,
-// 		identityId,
-// 	});
-// }
-
-export class AuthProviderDefault implements AuthProvider {
 	signUp: SignUp;
 	resendSignUpCode: ResendSignUpCode;
 	confirmSignUp: ConfirmSignUp;
-	authFlowType: AuthFlowType;
-	logInWithOAuthCode: ReturnType<typeof createLogInWithOAuthCode>;
+	signInWithSocialUi: SignInWithSocialUi;
 
-	getModuleName() {
-		return 'Auth' as const;
-	}
+	logInWithOAuthCode: ReturnType<typeof createSignInWithOAuthCode>;
 
-	getProviderName() {
-		return 'AmazonCognito';
-	}
+	getModuleName = () => 'Auth' as const;
+	getProviderName = () => 'AmazonCognito';
 
 	async configure(config: Config) {
 		const normalizedConfig = normalizeConfig(config);
 
-		/**
-		 * Instantiate credential-free user pool and identity pool clients
-		 */
-		const identityPoolClient = IdentityPoolClient(normalizedConfig);
-		const userPoolClient = UserPoolClient(normalizedConfig);
+		const identityPoolClient: CognitoIdentityClient | undefined = (() => {
+			if (normalizedConfig.oauth) {
+				const identityPoolClient = new CognitoIdentityClient({
+					region: normalizedConfig.region,
+				});
 
-		/**
-		 * Get an identity ID
-		 */
+				if (!normalizedConfig.mandatorySignIn) {
+					const unauthCredentialsProvider = fromCognitoIdentityPool({
+						identityPoolId: config.identityPoolId,
+						client: identityPoolClient,
+					});
+
+					identityPoolClient.config.credentials = unauthCredentialsProvider;
+				}
+
+				return identityPoolClient;
+			}
+		})();
+
+		const userPoolClient = new CognitoIdentityProviderClient({
+			region: config.region,
+		});
+
+		const clients: Clients = {
+			identityPool: identityPoolClient,
+			userPool: userPoolClient,
+		};
+
 		const getIdentityIdOrThrowError = async (
 			accessTokenRec?: Record<string, string>
 		): Promise<string> => {
@@ -96,11 +90,6 @@ export class AuthProviderDefault implements AuthProvider {
 			}
 		};
 
-		/**
-		 * Get AWS credentials from an `IdentityId`
-		 *
-		 * @param accessTokenRec – access tokens to send along with the request
-		 */
 		const getCredentialsOrThrowError = async (
 			accessTokenRec?: Record<string, string>
 		): Promise<IdentityPoolCredentials> => {
@@ -120,20 +109,13 @@ export class AuthProviderDefault implements AuthProvider {
 			}
 		};
 
-		/**
-		 * Get the current auth flow type
-		 */
 		const getAuthFlowType = (): AuthFlowType => {
 			return this.authFlowType;
 		};
 
-		/**
-		 * Expose the data & utils defined in this constructor to the various methods, assigned below
-		 */
 		const context: Context = {
+			clients,
 			config: normalizedConfig,
-			identityPoolClient,
-			userPoolClient,
 			getIdentityIdOrThrowError,
 			getAuthFlowType,
 			getCredentialsOrThrowError,
@@ -143,9 +125,10 @@ export class AuthProviderDefault implements AuthProvider {
 		this.signUp = createSignUp(context);
 		this.resendSignUpCode = createResendSignUpCode(context);
 		this.confirmSignUp = createConfirmSignUp(context);
+		this.signInWithSocialUi = createSignInWithSocialUi(context);
 
 		// internal
-		this.logInWithOAuthCode = createLogInWithOAuthCode(context);
+		this.logInWithOAuthCode = createSignInWithOAuthCode(context);
 
 		for (const piece of window.location.search.substr(1).split('#')) {
 			const [key, value] = piece.split('=');

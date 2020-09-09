@@ -37,3 +37,13 @@ export interface SignUpResult {
 }
 
 export type Command<I, O> = (input: I) => Promise<O>;
+
+export interface SignInResult {}
+
+export enum IdentityProvider {
+	Cognito = 'COGNITO',
+	Google = 'Google',
+	Facebook = 'Facebook',
+	Amazon = 'LoginWithAmazon',
+	Apple = 'SignInWithApple',
+}

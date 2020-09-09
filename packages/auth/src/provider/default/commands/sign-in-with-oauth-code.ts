@@ -1,16 +1,14 @@
-import { CommandFactory } from './command-factory';
+import { CommandFactory } from '../context';
 import { Command } from '../..';
 import {
 	GetIdCommand,
 	GetCredentialsForIdentityCommand,
 } from '@aws-sdk/client-cognito-identity';
 
-export const createLogInWithOAuthCode: CommandFactory<Command<
+export const createSignInWithOAuthCode: CommandFactory<Command<
 	string,
-	void // for now
+	void
 >> = context => async (code: string): Promise<void> => {
-	const clientId = '';
-	const redirectUri = '';
 	const codeVerifier = '';
 
 	try {
@@ -21,7 +19,10 @@ export const createLogInWithOAuthCode: CommandFactory<Command<
 				headers: {
 					'Content-Type': 'application/x-www-form-urlencoded',
 				},
-				body: `grant_type=authorization_code&code=${code}&client_id=${clientId}&redirect_uri=${redirectUri}${
+				body: `grant_type=authorization_code&code=${code}&client_id=${
+					context.config.userPoolWebClientId
+					// @ts-ignore – TODO: add the following field
+				}&redirect_uri=${context.config.oauth.redirectSignIn}${
 					codeVerifier ? `code_verifier=${codeVerifier}` : ''
 				}`,
 			}
@@ -38,12 +39,15 @@ export const createLogInWithOAuthCode: CommandFactory<Command<
 
 		const domain = `cognito-idp.${context.config.region}.amazonaws.com/${context.config.userPoolId}`;
 		const Logins = { [domain]: hostedUiResponse.access_token };
+
 		const getIdCommand = new GetIdCommand({
 			IdentityPoolId: context.config.identityPoolId,
 			Logins,
 		});
 		try {
-			const getIdResponse = await context.identityPoolClient.send(getIdCommand);
+			const getIdResponse = await context.clients.identityPool.send(
+				getIdCommand
+			);
 
 			if (!getIdResponse.IdentityId) {
 				throw new Error();
@@ -54,20 +58,25 @@ export const createLogInWithOAuthCode: CommandFactory<Command<
 				Logins,
 			});
 
-			const getCredentialsResponse = await context.identityPoolClient.send(
+			const getCredentialsResponse = await context.clients.identityPool.send(
 				getCredentialsCommand
 			);
 
-			console.log(getCredentialsResponse);
+			if (!getCredentialsResponse.Credentials) {
+				throw new Error();
+			}
+
+			context.clients.identityPool.config.credentials = () =>
+				Promise.resolve({
+					accessKeyId: getCredentialsResponse.Credentials.AccessKeyId,
+					secretAccessKey: getCredentialsResponse.Credentials.SecretKey,
+					sessionToken: getCredentialsResponse.Credentials.SessionToken,
+					expiration: getCredentialsResponse.Credentials.Expiration,
+				});
 		} catch (e) {
 			throw e;
 		}
 	} catch (e) {
 		throw e;
 	}
-	// 1. get access token
-	// 2. get identity id
-	// 3. get credentials
-	// 4. override context.identityPoolClient with new client that has credentials retrieved from step 3
-	// what do we do with the credentials for the user pool client
 };

@@ -1,6 +1,6 @@
 import { ConfirmSignUp, SignUpResult } from '../..';
 import { ConfirmSignUpCommand } from '@aws-sdk/client-cognito-identity-provider';
-import { CommandFactory } from './command-factory';
+import { CommandFactory } from '../context';
 
 export const createConfirmSignUp: CommandFactory<ConfirmSignUp> = context => async input => {
 	const AnalyticsMetadata =
@@ -15,7 +15,7 @@ export const createConfirmSignUp: CommandFactory<ConfirmSignUp> = context => asy
 		AnalyticsMetadata,
 	});
 
-	const response = await context.userPoolClient.send(command);
+	const response = await context.clients.userPool.send(command);
 
 	const result: SignUpResult = { isSignUpComplete: true };
 

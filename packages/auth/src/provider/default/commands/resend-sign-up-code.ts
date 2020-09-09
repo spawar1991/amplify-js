@@ -1,7 +1,7 @@
 import { ResendSignUpCode, SignUpResult, DeliveryMedium } from '../..';
 import { ResendConfirmationCodeCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { SignUpStep } from '../../interface';
-import { CommandFactory } from './command-factory';
+import { CommandFactory } from '../context';
 
 export const createResendSignUpCode: CommandFactory<ResendSignUpCode> = context => async input => {
 	const command = new ResendConfirmationCodeCommand({
@@ -9,7 +9,7 @@ export const createResendSignUpCode: CommandFactory<ResendSignUpCode> = context 
 		Username: input.username,
 	});
 
-	const response = await context.userPoolClient.send(command);
+	const response = await context.clients.userPool.send(command);
 
 	const result: SignUpResult = {
 		isSignUpComplete: false,
