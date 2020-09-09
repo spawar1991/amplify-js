@@ -4,8 +4,8 @@ import { SignUpStep } from '../../interface';
 import { CommandFactory } from '../context';
 
 export const createSignUp: CommandFactory<SignUp> = context => async input => {
-	const ClientMetadata = input.options.pluginOptions;
-	const UserAttributes = input.options.userAttributes;
+	const ClientMetadata = input.options && input.options.pluginOptions;
+	const UserAttributes = input.options && input.options.userAttributes;
 
 	// TODO: handle no password
 	const command = new SignUpCommand({

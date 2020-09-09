@@ -4,7 +4,7 @@ export interface SignInWithUIOptions {}
 
 export interface SignInWithSocialUiParams {
 	// union prevents type error for TypeScript users who'd prefer not to import the enum
-	socialProvider: IdentityProvider | IdentityProvider[keyof IdentityProvider];
+	socialProvider?: IdentityProvider | IdentityProvider[keyof IdentityProvider];
 	options?: SignInWithUIOptions;
 }
 

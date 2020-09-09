@@ -44,6 +44,7 @@ export const createSignInWithOAuthCode: CommandFactory<Command<
 			IdentityPoolId: context.config.identityPoolId,
 			Logins,
 		});
+
 		try {
 			const getIdResponse = await context.clients.identityPool.send(
 				getIdCommand
@@ -58,21 +59,24 @@ export const createSignInWithOAuthCode: CommandFactory<Command<
 				Logins,
 			});
 
-			const getCredentialsResponse = await context.clients.identityPool.send(
-				getCredentialsCommand
-			);
+			try {
+				const getCredentialsResponse = await context.clients.identityPool.send(
+					getCredentialsCommand
+				);
 
-			if (!getCredentialsResponse.Credentials) {
-				throw new Error();
-			}
+				if (!getCredentialsResponse.Credentials) {
+					throw new Error();
+				}
 
-			context.clients.identityPool.config.credentials = () =>
-				Promise.resolve({
-					accessKeyId: getCredentialsResponse.Credentials.AccessKeyId,
-					secretAccessKey: getCredentialsResponse.Credentials.SecretKey,
-					sessionToken: getCredentialsResponse.Credentials.SessionToken,
-					expiration: getCredentialsResponse.Credentials.Expiration,
-				});
+				context.clients.identityPool.config.credentials = () => {
+					return Promise.resolve({
+						accessKeyId: getCredentialsResponse.Credentials.AccessKeyId,
+						secretAccessKey: getCredentialsResponse.Credentials.SecretKey,
+						sessionToken: getCredentialsResponse.Credentials.SessionToken,
+						expiration: getCredentialsResponse.Credentials.Expiration,
+					});
+				};
+			} catch (e) {}
 		} catch (e) {
 			throw e;
 		}

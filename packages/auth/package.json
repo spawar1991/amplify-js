@@ -44,7 +44,10 @@
     "crypto-js": "^3.3.0"
   },
   "devDependencies": {
-    "@jest/test-sequencer": "^24.9.0"
+    "@jest/test-sequencer": "^24.9.0",
+    "@types/crypto-js": "^3.1.47",
+    "@types/mocha": "^8.0.3",
+    "@types/react-native": "^0.63.17"
   },
   "jest": {
     "globals": {
@@ -88,5 +91,8 @@
       "/node_modules/"
     ],
     "testSequencer": "./testSequencer.js"
+  },
+  "peerDependencies": {
+    "react-native": "^0.63.2"
   }
 }

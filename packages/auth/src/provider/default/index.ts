@@ -38,7 +38,7 @@ export class ProviderDefault implements Provider {
 	logInWithOAuthCode: ReturnType<typeof createSignInWithOAuthCode>;
 
 	getModuleName = () => 'Auth' as const;
-	getProviderName = () => 'AmazonCognito';
+	getProviderName = () => 'AmazonCognito' as const;
 
 	async configure(config: Config) {
 		const normalizedConfig = normalizeConfig(config);
@@ -47,15 +47,17 @@ export class ProviderDefault implements Provider {
 			if (normalizedConfig.oauth) {
 				const identityPoolClient = new CognitoIdentityClient({
 					region: normalizedConfig.region,
+					/**
+					 * @see https://github.com/aws/aws-sdk-js-v3/issues/185
+					 */
+					credentials: () => Promise.resolve({} as any),
 				});
 
 				if (!normalizedConfig.mandatorySignIn) {
-					const unauthCredentialsProvider = fromCognitoIdentityPool({
+					identityPoolClient.config.credentials = fromCognitoIdentityPool({
 						identityPoolId: config.identityPoolId,
 						client: identityPoolClient,
 					});
-
-					identityPoolClient.config.credentials = unauthCredentialsProvider;
 				}
 
 				return identityPoolClient;
@@ -64,6 +66,10 @@ export class ProviderDefault implements Provider {
 
 		const userPoolClient = new CognitoIdentityProviderClient({
 			region: config.region,
+			/**
+			 * @see https://github.com/aws/aws-sdk-js-v3/issues/185
+			 */
+			credentials: () => Promise.resolve({} as any),
 		});
 
 		const clients: Clients = {
