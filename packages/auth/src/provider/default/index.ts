@@ -3,6 +3,7 @@ import {
 	createSignUp,
 	createResendSignUpCode,
 	createConfirmSignUp,
+	createLogInWithOAuthCode,
 } from './commands';
 import {
 	CognitoIdentityProviderClient,
@@ -18,7 +19,6 @@ import { fromCognitoIdentityPool } from '@aws-sdk/credential-provider-cognito-id
 import { AuthOptions as Config } from '../../types';
 import { normalizeConfig } from './normalize-config';
 import { Context } from './context';
-import { Credentials } from '@aws-sdk/types';
 
 function IdentityPoolClient(config: Config): CognitoIdentityClient {
 	const identityClient = new CognitoIdentityClient({
@@ -55,6 +55,7 @@ export class AuthProviderDefault implements AuthProvider {
 	resendSignUpCode: ResendSignUpCode;
 	confirmSignUp: ConfirmSignUp;
 	authFlowType: AuthFlowType;
+	logInWithOAuthCode: ReturnType<typeof createLogInWithOAuthCode>;
 
 	getModuleName() {
 		return 'Auth' as const;
@@ -138,84 +139,18 @@ export class AuthProviderDefault implements AuthProvider {
 			getCredentialsOrThrowError,
 		};
 
-		/**
-		 * Define methods
-		 */
+		// exposed
 		this.signUp = createSignUp(context);
 		this.resendSignUpCode = createResendSignUpCode(context);
 		this.confirmSignUp = createConfirmSignUp(context);
 
-		const logInWithOAuthCode = async (code: string): Promise<void> => {
-			// const client_id = isCognitoHostedOpts(this._config)
-			// 	? this._cognitoClientId
-			// 	: this._config.clientID;
-			const clientId = '';
-			const redirectUri = '';
-			const codeVerifier = '';
-
-			try {
-				const hostedUiResponse = (await fetch(
-					`https://${config.oauth.domain}/oauth2/token`,
-					{
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/x-www-form-urlencoded',
-						},
-						body: `grant_type=authorization_code&code=${code}&client_id=${clientId}&redirect_uri=${redirectUri}${
-							codeVerifier ? `code_verifier=${codeVerifier}` : ''
-						}`,
-					}
-				).then(r => r.json())) as {
-					access_token: string;
-					refresh_token: string;
-					id_token: string;
-					error?: string;
-				};
-
-				if (hostedUiResponse.error) {
-					throw new Error();
-				}
-
-				const domain = `cognito-idp.${config.region}.amazonaws.com/${config.userPoolId}`;
-				const Logins = { [domain]: hostedUiResponse.access_token };
-				const getIdCommand = new GetIdCommand({
-					IdentityPoolId: config.identityPoolId,
-					Logins,
-				});
-				try {
-					const getIdResponse = await identityPoolClient.send(getIdCommand);
-
-					if (!getIdResponse.IdentityId) {
-						throw new Error();
-					}
-
-					const getCredentialsCommand = new GetCredentialsForIdentityCommand({
-						IdentityId: getIdResponse.IdentityId,
-						Logins,
-					});
-
-					const getCredentialsResponse = await identityPoolClient.send(
-						getCredentialsCommand
-					);
-
-					console.log(getCredentialsResponse);
-				} catch (e) {
-					throw e;
-				}
-			} catch (e) {
-				throw e;
-			}
-			// 1. get access token
-			// 2. get identity id
-			// 3. get credentials
-			// 4. override context.identityPoolClient with new client that has credentials retrieved from step 3
-			// what do we do with the credentials for the user pool client
-		};
+		// internal
+		this.logInWithOAuthCode = createLogInWithOAuthCode(context);
 
 		for (const piece of window.location.search.substr(1).split('#')) {
 			const [key, value] = piece.split('=');
 			if (key === 'code') {
-				logInWithOAuthCode(value);
+				this.logInWithOAuthCode(value);
 			}
 		}
 	}

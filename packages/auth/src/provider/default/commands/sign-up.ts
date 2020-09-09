@@ -1,6 +1,7 @@
-import { SignUp, CommandFactory, SignUpResult, DeliveryMedium } from '../..';
+import { SignUp, SignUpResult, DeliveryMedium } from '../..';
 import { SignUpCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { SignUpStep } from '../../interface';
+import { CommandFactory } from './command-factory';
 
 export const createSignUp: CommandFactory<SignUp> = context => async input => {
 	const ClientMetadata = input.options.pluginOptions;
@@ -8,16 +9,14 @@ export const createSignUp: CommandFactory<SignUp> = context => async input => {
 
 	// TODO: handle no password
 	const command = new SignUpCommand({
-		ClientId: context.getClientIdOrThrowError(),
+		ClientId: context.config.userPoolWebClientId,
 		Password: input.password,
 		Username: input.username,
 		ClientMetadata,
 		UserAttributes,
 	});
 
-	const response = await context
-		.getIdentityProviderClientOrThrowError()
-		.send(command);
+	const response = await context.userPoolClient.send(command);
 
 	const result: SignUpResult = {
 		isSignUpComplete: response.UserConfirmed,
