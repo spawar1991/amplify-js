@@ -49,7 +49,7 @@ export class ProviderDefault implements Provider {
 			let code: string | undefined;
 			let state: string | undefined;
 
-			for (const piece of window.location.search.substr(1).split('#')) {
+			for (const piece of window.location.search.substr(1).split('&')) {
 				const [key, value] = piece.split('=');
 
 				switch (key) {
