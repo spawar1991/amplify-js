@@ -1,9 +1,5 @@
-import { CommandFactory } from '../context';
 import { Command } from '../..';
-import {
-	GetIdCommand,
-	GetCredentialsForIdentityCommand,
-} from '@aws-sdk/client-cognito-identity';
+import { CommandFactory } from './helpers';
 
 export const createSignInWithOAuthCode: CommandFactory<Command<
 	string,
@@ -44,7 +40,7 @@ export const createSignInWithOAuthCode: CommandFactory<Command<
 			accessTokenRec: Logins,
 		});
 
-		context.clients.identityPool.config.credentials = () => {
+		context.getIdentityPoolClientOrThrowError().config.credentials = () => {
 			return Promise.resolve({
 				accessKeyId: credentials.AccessKeyId,
 				secretAccessKey: credentials.SecretKey,

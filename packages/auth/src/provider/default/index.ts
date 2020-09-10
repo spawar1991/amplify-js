@@ -4,7 +4,7 @@ import {
 	ResendSignUpCode,
 	ConfirmSignUp,
 	SignInWithSocialUi,
-	Config,
+	RawConfig,
 } from '..';
 import {
 	createSignUp,
@@ -14,20 +14,10 @@ import {
 	createSignInWithSocialUi,
 	createDeleteAccount,
 } from './commands';
-import {
-	CognitoIdentityProviderClient,
-	AuthFlowType,
-} from '@aws-sdk/client-cognito-identity-provider';
-import {
-	CognitoIdentityClient,
-	GetIdCommand,
-	GetCredentialsForIdentityCommand,
-	Credentials as IdentityPoolCredentials,
-} from '@aws-sdk/client-cognito-identity';
-import { fromCognitoIdentityPool } from '@aws-sdk/credential-provider-cognito-identity';
+import { AuthFlowType } from '@aws-sdk/client-cognito-identity-provider';
 import { normalizeConfig } from './normalize-config';
-import { Context, Clients } from './context';
 import { DeleteAccount } from '../interface';
+import { Context } from './context';
 
 export class ProviderDefault implements Provider {
 	authFlowType: AuthFlowType;
@@ -43,100 +33,9 @@ export class ProviderDefault implements Provider {
 	getModuleName = () => 'Auth' as const;
 	getProviderName = () => 'AmazonCognito' as const;
 
-	async configure(rawConfig: Config) {
+	async configure(rawConfig: RawConfig) {
 		const config = normalizeConfig(rawConfig);
-
-		const identityPoolClient: CognitoIdentityClient | undefined = (() => {
-			if (config.oauth) {
-				const identityPoolClient = new CognitoIdentityClient({
-					region: config.region,
-					/**
-					 * @see https://github.com/aws/aws-sdk-js-v3/issues/185
-					 */
-					credentials: () => Promise.resolve({} as any),
-				});
-
-				if (!config.mandatorySignIn) {
-					identityPoolClient.config.credentials = fromCognitoIdentityPool({
-						identityPoolId: config.identityPoolId,
-						client: identityPoolClient,
-					});
-				}
-
-				return identityPoolClient;
-			}
-		})();
-
-		const userPoolClient = new CognitoIdentityProviderClient({
-			region: config.region,
-			/**
-			 * @see https://github.com/aws/aws-sdk-js-v3/issues/185
-			 */
-			credentials: () => Promise.resolve({} as any),
-		});
-
-		const clients: Clients = {
-			identityPool: identityPoolClient,
-			userPool: userPoolClient,
-		};
-
-		const getIdentityIdOrThrowError = async (
-			accessTokenRec?: Record<string, string>
-		): Promise<string> => {
-			const command = new GetIdCommand({
-				IdentityPoolId: config.identityPoolId,
-				Logins: accessTokenRec,
-			});
-
-			try {
-				const response = await identityPoolClient.send(command);
-				if (!response.IdentityId) {
-					throw new Error();
-				}
-				return response.IdentityId;
-			} catch (e) {
-				throw e;
-			}
-		};
-
-		const getCredentialsOrThrowError: Context['getCredentialsOrThrowError'] = async ({
-			identityId,
-			accessTokenRec,
-		}): Promise<IdentityPoolCredentials> => {
-			const command = new GetCredentialsForIdentityCommand({
-				IdentityId:
-					identityId || (await getIdentityIdOrThrowError(accessTokenRec)),
-				Logins: accessTokenRec,
-			});
-
-			try {
-				const response = await identityPoolClient.send(command);
-				if (!response.Credentials) {
-					throw new Error();
-				}
-				return response.Credentials;
-			} catch (e) {
-				throw e;
-			}
-		};
-
-		const getAuthFlowType = (): AuthFlowType => {
-			return this.authFlowType;
-		};
-
-		// TODO: implement
-		const getAccessTokenOrThrowError = () => {
-			return undefined as Promise<string>;
-		};
-
-		const context: Context = {
-			clients,
-			getAccessTokenOrThrowError,
-			config,
-			getIdentityIdOrThrowError,
-			getAuthFlowType,
-			getCredentialsOrThrowError,
-		};
+		const context = new Context(config);
 
 		// exposed
 		this.signUp = createSignUp(context);

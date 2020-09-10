@@ -1,11 +1,11 @@
 import { SignInWithSocialUi } from '../..';
-import { CommandFactory } from '../context';
 import {
 	generateRandom,
 	generateChallenge,
 	generateState,
 	OAUTH_PKCE_KEY_KEY,
 	OAUTH_STATE_KEY,
+	CommandFactory,
 } from './helpers';
 import { launchUri } from './helpers/url-opener';
 
