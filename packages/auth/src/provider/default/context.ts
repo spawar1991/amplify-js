@@ -16,13 +16,15 @@ export interface Clients {
 export interface Context {
 	config: NormalizedConfig;
 	clients: Clients;
+	getAccessTokenOrThrowError(): Promise<string>;
 	getIdentityIdOrThrowError(
 		accessTokenRec?: Record<string, string>
 	): Promise<string>;
 	getAuthFlowType(): AuthFlowType;
-	getCredentialsOrThrowError(
-		accessTokenRec: Record<string, string>
-	): Promise<IdentityPoolCredentials>;
+	getCredentialsOrThrowError(options: {
+		identityId?: string;
+		accessTokenRec?: Record<string, string>;
+	}): Promise<IdentityPoolCredentials>;
 }
 
 export type CommandFactory<Command> = (context: Context) => Command;

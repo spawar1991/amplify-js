@@ -1,3 +1,7 @@
+import { AuthFlowType } from '@aws-sdk/client-cognito-identity-provider';
+
+export { AuthFlowType };
+
 export interface UserAttribute {
 	Name: string;
 	Value: string;
@@ -36,7 +40,9 @@ export interface SignUpResult {
 	nextStep?: NextSignUpStep;
 }
 
-export type Command<I, O> = (input: I) => Promise<O>;
+export type Command<I, O> = I extends undefined
+	? () => Promise<O>
+	: (input: I) => Promise<O>;
 
 export interface SignInResult {}
 

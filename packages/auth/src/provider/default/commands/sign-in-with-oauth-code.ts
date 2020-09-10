@@ -40,46 +40,18 @@ export const createSignInWithOAuthCode: CommandFactory<Command<
 		const domain = `cognito-idp.${context.config.region}.amazonaws.com/${context.config.userPoolId}`;
 		const Logins = { [domain]: hostedUiResponse.access_token };
 
-		const getIdCommand = new GetIdCommand({
-			IdentityPoolId: context.config.identityPoolId,
-			Logins,
+		const credentials = await context.getCredentialsOrThrowError({
+			accessTokenRec: Logins,
 		});
 
-		try {
-			const getIdResponse = await context.clients.identityPool.send(
-				getIdCommand
-			);
-
-			if (!getIdResponse.IdentityId) {
-				throw new Error();
-			}
-
-			const getCredentialsCommand = new GetCredentialsForIdentityCommand({
-				IdentityId: getIdResponse.IdentityId,
-				Logins,
+		context.clients.identityPool.config.credentials = () => {
+			return Promise.resolve({
+				accessKeyId: credentials.AccessKeyId,
+				secretAccessKey: credentials.SecretKey,
+				sessionToken: credentials.SessionToken,
+				expiration: credentials.Expiration,
 			});
-
-			try {
-				const getCredentialsResponse = await context.clients.identityPool.send(
-					getCredentialsCommand
-				);
-
-				if (!getCredentialsResponse.Credentials) {
-					throw new Error();
-				}
-
-				context.clients.identityPool.config.credentials = () => {
-					return Promise.resolve({
-						accessKeyId: getCredentialsResponse.Credentials.AccessKeyId,
-						secretAccessKey: getCredentialsResponse.Credentials.SecretKey,
-						sessionToken: getCredentialsResponse.Credentials.SessionToken,
-						expiration: getCredentialsResponse.Credentials.Expiration,
-					});
-				};
-			} catch (e) {}
-		} catch (e) {
-			throw e;
-		}
+		};
 	} catch (e) {
 		throw e;
 	}

@@ -12,6 +12,7 @@ import {
 	createConfirmSignUp,
 	createSignInWithOAuthCode,
 	createSignInWithSocialUi,
+	createDeleteAccount,
 } from './commands';
 import {
 	CognitoIdentityProviderClient,
@@ -26,6 +27,7 @@ import {
 import { fromCognitoIdentityPool } from '@aws-sdk/credential-provider-cognito-identity';
 import { normalizeConfig } from './normalize-config';
 import { Context, Clients } from './context';
+import { DeleteAccount } from '../interface';
 
 export class ProviderDefault implements Provider {
 	authFlowType: AuthFlowType;
@@ -34,26 +36,27 @@ export class ProviderDefault implements Provider {
 	resendSignUpCode: ResendSignUpCode;
 	confirmSignUp: ConfirmSignUp;
 	signInWithSocialUi: SignInWithSocialUi;
+	deleteAccount: DeleteAccount;
 
 	logInWithOAuthCode: ReturnType<typeof createSignInWithOAuthCode>;
 
 	getModuleName = () => 'Auth' as const;
 	getProviderName = () => 'AmazonCognito' as const;
 
-	async configure(config: Config) {
-		const normalizedConfig = normalizeConfig(config);
+	async configure(rawConfig: Config) {
+		const config = normalizeConfig(rawConfig);
 
 		const identityPoolClient: CognitoIdentityClient | undefined = (() => {
-			if (normalizedConfig.oauth) {
+			if (config.oauth) {
 				const identityPoolClient = new CognitoIdentityClient({
-					region: normalizedConfig.region,
+					region: config.region,
 					/**
 					 * @see https://github.com/aws/aws-sdk-js-v3/issues/185
 					 */
 					credentials: () => Promise.resolve({} as any),
 				});
 
-				if (!normalizedConfig.mandatorySignIn) {
+				if (!config.mandatorySignIn) {
 					identityPoolClient.config.credentials = fromCognitoIdentityPool({
 						identityPoolId: config.identityPoolId,
 						client: identityPoolClient,
@@ -81,7 +84,7 @@ export class ProviderDefault implements Provider {
 			accessTokenRec?: Record<string, string>
 		): Promise<string> => {
 			const command = new GetIdCommand({
-				IdentityPoolId: normalizedConfig.identityPoolId,
+				IdentityPoolId: config.identityPoolId,
 				Logins: accessTokenRec,
 			});
 
@@ -96,11 +99,13 @@ export class ProviderDefault implements Provider {
 			}
 		};
 
-		const getCredentialsOrThrowError = async (
-			accessTokenRec?: Record<string, string>
-		): Promise<IdentityPoolCredentials> => {
+		const getCredentialsOrThrowError: Context['getCredentialsOrThrowError'] = async ({
+			identityId,
+			accessTokenRec,
+		}): Promise<IdentityPoolCredentials> => {
 			const command = new GetCredentialsForIdentityCommand({
-				IdentityId: await getIdentityIdOrThrowError(),
+				IdentityId:
+					identityId || (await getIdentityIdOrThrowError(accessTokenRec)),
 				Logins: accessTokenRec,
 			});
 
@@ -119,9 +124,15 @@ export class ProviderDefault implements Provider {
 			return this.authFlowType;
 		};
 
+		// TODO: implement
+		const getAccessTokenOrThrowError = () => {
+			return undefined as Promise<string>;
+		};
+
 		const context: Context = {
 			clients,
-			config: normalizedConfig,
+			getAccessTokenOrThrowError,
+			config,
 			getIdentityIdOrThrowError,
 			getAuthFlowType,
 			getCredentialsOrThrowError,
@@ -132,6 +143,7 @@ export class ProviderDefault implements Provider {
 		this.resendSignUpCode = createResendSignUpCode(context);
 		this.confirmSignUp = createConfirmSignUp(context);
 		this.signInWithSocialUi = createSignInWithSocialUi(context);
+		this.deleteAccount = createDeleteAccount(context);
 
 		// internal
 		this.logInWithOAuthCode = createSignInWithOAuthCode(context);
