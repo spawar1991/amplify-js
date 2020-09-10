@@ -13,27 +13,25 @@ import {
 	createSignInWithOAuthCode,
 	createSignInWithSocialUi,
 	createDeleteAccount,
+	SignInWithOAuthCode,
 } from './commands';
-import { AuthFlowType } from '@aws-sdk/client-cognito-identity-provider';
 import { normalizeConfig } from './normalize-config';
 import { DeleteAccount } from '../interface';
 import { Context } from './context';
 
 export class ProviderDefault implements Provider {
-	authFlowType: AuthFlowType;
-
 	signUp: SignUp;
 	resendSignUpCode: ResendSignUpCode;
 	confirmSignUp: ConfirmSignUp;
 	signInWithSocialUi: SignInWithSocialUi;
 	deleteAccount: DeleteAccount;
 
-	logInWithOAuthCode: ReturnType<typeof createSignInWithOAuthCode>;
+	private logInWithOAuthCode: SignInWithOAuthCode;
 
 	getModuleName = () => 'Auth' as const;
 	getProviderName = () => 'AmazonCognito' as const;
 
-	async configure(rawConfig: RawConfig) {
+	configure = (rawConfig: RawConfig) => {
 		const config = normalizeConfig(rawConfig);
 		const context = new Context(config);
 
@@ -47,11 +45,33 @@ export class ProviderDefault implements Provider {
 		// internal
 		this.logInWithOAuthCode = createSignInWithOAuthCode(context);
 
-		for (const piece of window.location.search.substr(1).split('#')) {
-			const [key, value] = piece.split('=');
-			if (key === 'code') {
-				this.logInWithOAuthCode(value);
+		if (config.oauth) {
+			let code: string | undefined;
+			let state: string | undefined;
+
+			for (const piece of window.location.search.substr(1).split('#')) {
+				const [key, value] = piece.split('=');
+
+				switch (key) {
+					case 'code': {
+						code = value;
+						break;
+					}
+
+					case 'state': {
+						state = value;
+						break;
+					}
+
+					default: {
+						break;
+					}
+				}
+			}
+
+			if (code) {
+				this.logInWithOAuthCode({ code, state });
 			}
 		}
-	}
+	};
 }
